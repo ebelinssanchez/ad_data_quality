@@ -1,17 +1,19 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Filter, RotateCcw, X } from 'lucide-react'
+import { ChevronDown, Filter, RotateCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useData } from '@/lib/data-context'
+import type { FilterState } from '@/lib/types'
 
 const filterConfig = [
   { field: 'province', label: 'Province', placeholder: 'All Provinces', optionKey: 'provinces' },
@@ -23,6 +25,8 @@ const filterConfig = [
   { field: 'status', label: 'DQ Status', placeholder: 'All Status', optionKey: 'statuses' },
   { field: 'condition', label: 'Condition', placeholder: 'All Conditions', optionKey: 'conditions' },
 ] as const
+
+type FilterField = Exclude<keyof FilterState, 'dateRange'>
 
 export function FiltersPanel() {
   const { allData, filters, setFilters, resetFilters, filterOptions } = useData()
@@ -48,25 +52,70 @@ export function FiltersPanel() {
     return Array.isArray(value) && value.length > 0
   })
 
-  const handleFilterChange = (field: keyof typeof filters, value: string) => {
+  const getFilteredRegionOptions = (selectedProvinces: string[]) => {
+    const provinces = new Set(selectedProvinces)
+    const source = provinces.size > 0
+      ? allData.filter((record) => provinces.has(record.province))
+      : allData
+    return [...new Set(source.map((record) => record.region))].filter(Boolean).sort()
+  }
+
+  const getFilteredProvinceOptions = (selectedRegions: string[]) => {
+    const regions = new Set(selectedRegions)
+    const source = regions.size > 0
+      ? allData.filter((record) => regions.has(record.region))
+      : allData
+    return [...new Set(source.map((record) => record.province))].filter(Boolean).sort()
+  }
+
+  const getOptions = (field: FilterField, optionKey: (typeof filterConfig)[number]['optionKey']) => {
+    if (field === 'province') return provinceOptions
+    if (field === 'region') return regionOptions
+    return filterOptions[optionKey]
+  }
+
+  const getTriggerLabel = (field: FilterField, placeholder: string) => {
+    const selected = filters[field]
+    if (selected.length === 0) return placeholder
+    if (selected.length === 1) return selected[0]
+    return `${selected.length} selected`
+  }
+
+  const toggleFilterValue = (field: FilterField, value: string) => {
+    const currentValues = filters[field]
+    const nextValues = currentValues.includes(value)
+      ? currentValues.filter((item) => item !== value)
+      : [...currentValues, value]
+
     const nextFilters = {
       ...filters,
-      [field]: value === 'all' ? [] : [value],
+      [field]: nextValues,
     }
 
     if (field === 'province') {
-      nextFilters.region = nextFilters.region.filter((region) => regionOptions.includes(region))
+      const allowedRegions = getFilteredRegionOptions(nextFilters.province)
+      nextFilters.region = nextFilters.region.filter((region) => allowedRegions.includes(region))
     }
 
     if (field === 'region') {
-      nextFilters.province = nextFilters.province.filter((province) => provinceOptions.includes(province))
+      const allowedProvinces = getFilteredProvinceOptions(nextFilters.region)
+      nextFilters.province = nextFilters.province.filter((province) => allowedProvinces.includes(province))
     }
 
     setFilters(nextFilters)
   }
 
-  const removeFilter = (field: keyof typeof filters) => {
-    setFilters({ ...filters, [field]: [] })
+  const removeFilter = (field: FilterField) => {
+    const nextFilters = { ...filters, [field]: [] }
+    if (field === 'province') {
+      const allowedRegions = getFilteredRegionOptions([])
+      nextFilters.region = nextFilters.region.filter((region) => allowedRegions.includes(region))
+    }
+    if (field === 'region') {
+      const allowedProvinces = getFilteredProvinceOptions([])
+      nextFilters.province = nextFilters.province.filter((province) => allowedProvinces.includes(province))
+    }
+    setFilters(nextFilters)
   }
 
   return (
@@ -97,27 +146,33 @@ export function FiltersPanel() {
           {filterConfig.map(({ field, label, placeholder, optionKey }) => (
             <div key={field} className="space-y-1.5">
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
-              <Select
-                value={filters[field][0] || 'all'}
-                onValueChange={(value) => handleFilterChange(field, value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={placeholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{placeholder}</SelectItem>
-                  {(field === 'province'
-                    ? provinceOptions
-                    : field === 'region'
-                      ? regionOptions
-                      : filterOptions[optionKey]
-                  ).slice(0, 80).map((option) => (
-                    <SelectItem key={option} value={option}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full justify-between overflow-hidden text-ellipsis whitespace-nowrap font-normal"
+                  >
+                    <span className="truncate">{getTriggerLabel(field, placeholder)}</span>
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="max-h-80 w-72 overflow-y-auto">
+                  <DropdownMenuItem onClick={() => removeFilter(field)}>
+                    Clear {label}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {getOptions(field, optionKey).slice(0, 160).map((option) => (
+                    <DropdownMenuCheckboxItem
+                      key={option}
+                      checked={filters[field].includes(option)}
+                      onCheckedChange={() => toggleFilterValue(field, option)}
+                      onSelect={(event) => event.preventDefault()}
+                    >
                       {option}
-                    </SelectItem>
+                    </DropdownMenuCheckboxItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ))}
         </div>
