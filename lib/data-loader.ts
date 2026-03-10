@@ -251,7 +251,9 @@ export function applyFilters(data: EnrichedRecord[], filters: FilterState): Enri
 // Calculate summary statistics
 export function calculateSummaryStats(data: EnrichedRecord[]): SummaryStats {
   const total = data.length
-  const flagged = data.filter(r => r.dq_status === 'Flagged').length
+  // Business semantics: anything not Clear is considered Flagged.
+  // "Excluded by Condition" is kept as a dedicated breakdown card.
+  const flagged = data.filter(r => r.dq_status !== 'Clear').length
   const excluded = data.filter(r => r.dq_status === 'Excluded by Condition').length
   const clear = data.filter(r => r.dq_status === 'Clear').length
   

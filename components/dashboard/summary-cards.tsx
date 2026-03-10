@@ -92,7 +92,7 @@ export function SummaryCards() {
         icon={AlertTriangle}
         color="text-warning"
         bgColor="bg-warning/10"
-        tooltip="Cell-KPI pairs with data quality conditions that require attention"
+        tooltip="Cell-KPI pairs that are not Clear (includes Excluded by Condition)"
       />
       <MetricCard
         title="Cell-KPI Clear"
