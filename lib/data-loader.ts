@@ -353,6 +353,33 @@ export function aggregateFlaggedByField(data: EnrichedRecord[], field: keyof Enr
   return aggregateByField(flaggedData, field, limit)
 }
 
+// Aggregate flagged records by field using unique impacted cells (not raw row count).
+// This avoids "total-like" charts when a few cells have many KPI rows.
+export function aggregateFlaggedUniqueCellsByField(
+  data: EnrichedRecord[],
+  field: keyof EnrichedRecord,
+  limit = 10
+): BarChartData[] {
+  const cellsByGroup = new Map<string, Set<string>>()
+
+  for (const record of data) {
+    if (record.dq_status === 'Clear') continue
+
+    const group = String(record[field] || 'Unknown')
+    if (!group || group === 'Unknown' || group === 'Not mapped') continue
+
+    if (!cellsByGroup.has(group)) {
+      cellsByGroup.set(group, new Set<string>())
+    }
+    cellsByGroup.get(group)!.add(record.cell)
+  }
+
+  return [...cellsByGroup.entries()]
+    .map(([name, cells]) => ({ name, value: cells.size }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit)
+}
+
 export function aggregateSumByField(
   data: EnrichedRecord[],
   groupField: keyof EnrichedRecord,

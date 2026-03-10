@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import { useData } from '@/lib/data-context'
 import {
-  aggregateFlaggedByField,
+  aggregateFlaggedUniqueCellsByField,
   getConditionCounts,
   getRopsDistribution,
 } from '@/lib/data-loader'
@@ -83,9 +83,9 @@ function ChartCard({
 export function OverviewCharts() {
   const { filteredData, isLoading } = useData()
 
-  const topProvinces = useMemo(() => aggregateFlaggedByField(filteredData, 'province', 8), [filteredData])
-  const topRegions = useMemo(() => aggregateFlaggedByField(filteredData, 'region', 8), [filteredData])
-  const topVendors = useMemo(() => aggregateFlaggedByField(filteredData, 'supplier', 8), [filteredData])
+  const topProvinces = useMemo(() => aggregateFlaggedUniqueCellsByField(filteredData, 'province', 8), [filteredData])
+  const topRegions = useMemo(() => aggregateFlaggedUniqueCellsByField(filteredData, 'region', 8), [filteredData])
+  const topVendors = useMemo(() => aggregateFlaggedUniqueCellsByField(filteredData, 'supplier', 8), [filteredData])
   const ropsDistribution = useMemo(() => getRopsDistribution(filteredData), [filteredData])
   const conditionData = useMemo(() => getConditionCounts(filteredData, 8), [filteredData])
 
