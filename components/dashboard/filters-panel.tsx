@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Filter, RotateCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,7 +25,23 @@ const filterConfig = [
 ] as const
 
 export function FiltersPanel() {
-  const { filters, setFilters, resetFilters, filterOptions } = useData()
+  const { allData, filters, setFilters, resetFilters, filterOptions } = useData()
+
+  const provinceOptions = useMemo(() => {
+    const regions = new Set(filters.region)
+    const source = regions.size > 0
+      ? allData.filter((record) => regions.has(record.region))
+      : allData
+    return [...new Set(source.map((record) => record.province))].filter(Boolean).sort()
+  }, [allData, filters.region])
+
+  const regionOptions = useMemo(() => {
+    const provinces = new Set(filters.province)
+    const source = provinces.size > 0
+      ? allData.filter((record) => provinces.has(record.province))
+      : allData
+    return [...new Set(source.map((record) => record.region))].filter(Boolean).sort()
+  }, [allData, filters.province])
 
   const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
     if (key === 'dateRange') return false
@@ -32,10 +49,20 @@ export function FiltersPanel() {
   })
 
   const handleFilterChange = (field: keyof typeof filters, value: string) => {
-    setFilters({
+    const nextFilters = {
       ...filters,
       [field]: value === 'all' ? [] : [value],
-    })
+    }
+
+    if (field === 'province') {
+      nextFilters.region = nextFilters.region.filter((region) => regionOptions.includes(region))
+    }
+
+    if (field === 'region') {
+      nextFilters.province = nextFilters.province.filter((province) => provinceOptions.includes(province))
+    }
+
+    setFilters(nextFilters)
   }
 
   const removeFilter = (field: keyof typeof filters) => {
@@ -79,7 +106,12 @@ export function FiltersPanel() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{placeholder}</SelectItem>
-                  {filterOptions[optionKey].slice(0, 80).map((option) => (
+                  {(field === 'province'
+                    ? provinceOptions
+                    : field === 'region'
+                      ? regionOptions
+                      : filterOptions[optionKey]
+                  ).slice(0, 80).map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
