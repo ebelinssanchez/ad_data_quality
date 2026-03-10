@@ -78,6 +78,7 @@ export function createCellLookup(inventory: CellInventory[]): Map<string, CellIn
   const lookup = new Map<string, CellInventory>()
   
   for (const cell of inventory) {
+    // Inventory must be joined using cells_actuals.cell_name.
     if (cell.cell_name) {
       lookup.set(cell.cell_name, cell)
     }
@@ -157,7 +158,8 @@ export function enrichDataQuality(
   discardsLookup: Map<string, DiscardsRecord>
 ): EnrichedRecord[] {
   return records.map(record => {
-    // Try to find matching cell in inventory (using cell name from metrics to match cell_name in inventory)
+    // Metrics datasets use `cell`; inventory uses `cell_name`.
+    // The required enrichment join is: metrics.cell = cells_actuals.cell_name
     const inventory = cellLookup.get(record.cell)
     const discardsKey = `${record.cell}|${record.metric}`
     const discards = discardsLookup.get(discardsKey)
@@ -166,14 +168,14 @@ export function enrichDataQuality(
     return {
       ...record,
       // From inventory
-      supplier: inventory?.supplier || 'Unknown',
-      region: inventory?.region || 'Unknown',
-      province: inventory?.province || 'Unknown',
-      site_name: inventory?.site_name || 'Unknown',
-      node_name: inventory?.node_name || 'Unknown',
-      band: inventory?.band || 'Unknown',
-      town: inventory?.town || 'Unknown',
-      tech_id: inventory?.tech_id || 'Unknown',
+      supplier: inventory?.supplier || 'Not mapped',
+      region: inventory?.region || 'Not mapped',
+      province: inventory?.province || 'Not mapped',
+      site_name: inventory?.site_name || 'Not mapped',
+      node_name: inventory?.node_name || 'Not mapped',
+      band: inventory?.band || 'Not mapped',
+      town: inventory?.town || 'Not mapped',
+      tech_id: inventory?.tech_id || 'Not mapped',
       // From discards
       historical_days_available: discards?.historical_days_available ?? null,
       insufficient_history: discards?.insufficient_history ?? false,
@@ -346,6 +348,26 @@ export function aggregateFlaggedByField(data: EnrichedRecord[], field: keyof Enr
   return aggregateByField(flaggedData, field, limit)
 }
 
+export function aggregateSumByField(
+  data: EnrichedRecord[],
+  groupField: keyof EnrichedRecord,
+  valueField: keyof EnrichedRecord,
+  limit = 10
+): BarChartData[] {
+  const totals = new Map<string, number>()
+
+  for (const record of data) {
+    const key = String(record[groupField] || 'Unknown')
+    const value = Number(record[valueField] ?? 0)
+    totals.set(key, (totals.get(key) || 0) + value)
+  }
+
+  return [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name, value]) => ({ name, value }))
+}
+
 export function aggregateByDaysModified(
   data: EnrichedRecord[],
   field: keyof EnrichedRecord,
@@ -418,34 +440,27 @@ export function getRopsDistribution(data: EnrichedRecord[]): BarChartData[] {
 // Export to CSV
 export function exportToCSV(data: EnrichedRecord[], filename: string): void {
   const headers = [
-    'Province', 'Region', 'Vendor', 'Technology', 'Node', 'Site Name', 'Cell', 'Metric',
-    'CGI', 'Days Available', 'Days Modified', 'Historical Days Available', 'ROPs Available',
-    'Trend Change', 'Insufficient History', 'Insufficient ROPs', 'Activity Criteria',
-    'Modulator KPI', 'Modulator Value', 'DQ Status', 'Condition', 'Timestamp'
+    'Province', 'Region', 'Vendor', 'Node', 'Site Name', 'Cell', 'Metric', 'Condition',
+    'Days Available', 'Days Modified', 'Historical Days Available', 'ROPs Available',
+    'Modulator KPI', 'Modulator Value', 'DQ Status', 'Timestamp'
   ]
   
   const rows = data.map(r => [
     r.province,
     r.region,
     r.supplier,
-    r.band,
     r.node_name,
     r.site_name,
     r.cell,
     r.metric,
-    r.cgi,
+    r.condition,
     r.days_available ?? '',
     r.days_modified,
     r.historical_days_available ?? '',
     r.num_rops_available ?? '',
-    r.trend_change ?? '',
-    r.insufficient_history ?? '',
-    r.insufficient_rops ?? '',
-    r.activity_criteria ?? '',
     r.modulator_kpi ?? '',
     r.value_modulator_kpi ?? '',
     r.dq_status,
-    r.condition,
     r.timestamp
   ])
   

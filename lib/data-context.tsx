@@ -106,7 +106,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [filterOptions, setFilterOptions] = useState(defaultFilterOptions)
   const [summaryStats, setSummaryStats] = useState<SummaryStats>(defaultSummaryStats)
   const [metricStats, setMetricStats] = useState<MetricStats>(defaultMetricStats)
-  const [activeTab, setActiveTab] = useState<PanelTab>('overview')
+  const [activeTab, setActiveTab] = useState<PanelTab>('days-available')
   const [selectedCell, setSelectedCell] = useState<EnrichedRecord | null>(null)
   
   // Load data on mount
@@ -137,7 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setMetricStats(calculateMetricStats(enrichedData))
       } catch (err) {
         console.error('Error loading data:', err)
-        setError('Failed to load data. Please try again.')
+        setError('Unable to load the telecom data quality datasets. Please verify the uploaded files and try again.')
       } finally {
         setIsLoading(false)
       }

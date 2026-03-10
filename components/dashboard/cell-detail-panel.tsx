@@ -71,7 +71,7 @@ export function CellDetailPanel() {
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">CGI</p>
-                <p className="text-sm font-mono">{selectedCell.cgi}</p>
+                <p className="text-sm font-mono">{selectedCell.cgi ?? 'N/A'}</p>
               </div>
             </div>
 
@@ -167,6 +167,28 @@ export function CellDetailPanel() {
                   : <span className="text-muted-foreground">No</span>
                 }
               </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Historical Days Available</p>
+                <p className="text-sm font-mono">{selectedCell.historical_days_available ?? 'N/A'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">ROPs Available</p>
+                <p className="text-sm font-mono">{selectedCell.num_rops_available ?? 'N/A'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Modulator KPI</p>
+                <p className="text-sm">{selectedCell.modulator_kpi ?? 'N/A'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Modulator Value</p>
+                <p className="text-sm font-mono">{selectedCell.value_modulator_kpi ?? 'N/A'}</p>
+              </div>
             </div>
           </div>
 

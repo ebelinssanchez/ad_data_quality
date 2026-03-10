@@ -1,130 +1,143 @@
-"use client"
+'use client'
 
-import { Clock, History, RefreshCw, TrendingUp, Activity, AlertCircle, CheckCircle2 } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import type { CellData } from "@/lib/mock-data"
+import { Activity, CalendarClock, History, RadioTower, TrendingUp, Waypoints } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { useData } from '@/lib/data-context'
+import type { PanelTab } from '@/lib/types'
 
-interface DQMetricsCardsProps {
-  cells: CellData[]
-}
-
-interface MetricCardProps {
+type MetricCardConfig = {
   title: string
-  icon: React.ReactNode
-  belowThreshold: number
-  passingThreshold: number
-  total: number
-  threshold: string
+  subtitle: string
+  affected: number
+  percentage: number
+  tab: PanelTab
+  icon: React.ElementType
+  accentClass: string
 }
 
-function DQMetricCard({ title, icon, belowThreshold, passingThreshold, total, threshold }: MetricCardProps) {
-  const passRate = total > 0 ? (passingThreshold / total) * 100 : 0
+function MetricCard({ title, subtitle, affected, percentage, tab, icon: Icon, accentClass }: MetricCardConfig) {
+  const { setActiveTab } = useData()
+
+  const openPanel = () => {
+    setActiveTab(tab)
+    globalThis.document?.getElementById('detailed-panels')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
-            {icon}
-            {title}
-          </CardTitle>
+    <Card className="border-border/70 bg-card/95 shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+          </div>
+          <div className={`rounded-lg border px-2 py-2 ${accentClass}`}>
+            <Icon className="h-4 w-4" />
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-1.5 text-destructive">
-            <AlertCircle className="h-3.5 w-3.5" />
-            <span className="font-medium">{belowThreshold}</span>
-            <span className="text-muted-foreground text-xs">below threshold</span>
+      <CardContent className="space-y-4">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-2xl font-semibold">{affected.toLocaleString()}</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Affected count</p>
           </div>
-          <div className="flex items-center gap-1.5 text-success">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span className="font-medium">{passingThreshold}</span>
-            <span className="text-muted-foreground text-xs">passing</span>
+          <div className="text-right">
+            <p className="text-lg font-medium">{percentage.toFixed(1)}%</p>
+            <p className="text-xs text-muted-foreground">of filtered Cell-KPI</p>
           </div>
         </div>
-        <Progress value={passRate} className="h-1.5" />
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Total: {total} cells</span>
-          <span>Threshold: {threshold}</span>
-        </div>
+
+        <Button variant="outline" size="sm" className="w-full" onClick={openPanel}>
+          Open detailed panel
+        </Button>
       </CardContent>
     </Card>
   )
 }
 
-export function DQMetricsCards({ cells }: DQMetricsCardsProps) {
-  // Off-hours ROPs Coverage
-  const ropsCells = cells.filter((c) => c.metricType === "Off-Hours ROPs Coverage")
-  const ropsBelow = ropsCells.filter((c) => c.status === "Failed").length
-  const ropsPassing = ropsCells.filter((c) => c.status === "Passed").length
+export function DQMetricsCards() {
+  const { metricStats, isLoading } = useData()
 
-  // Historical Data Availability
-  const histCells = cells.filter((c) => c.metricType === "Historical Data Availability")
-  const histBelow = histCells.filter((c) => c.status === "Failed").length
-  const histPassing = histCells.filter((c) => c.status === "Passed").length
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Card key={index} className="animate-pulse">
+            <CardContent className="p-6">
+              <div className="h-4 w-32 rounded bg-muted" />
+              <div className="mt-4 h-8 w-16 rounded bg-muted" />
+              <div className="mt-4 h-9 rounded bg-muted" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
 
-  // Modified Historical Data
-  const modCells = cells.filter((c) => c.metricType === "Modified Historical Data")
-  const modBelow = modCells.filter((c) => c.status === "Failed").length
-  const modPassing = modCells.filter((c) => c.status === "Passed").length
-
-  // Trend Change Detection
-  const trendCells = cells.filter((c) => c.metricType === "Trend Change Detection")
-  const trendBelow = trendCells.filter((c) => c.status === "Failed").length
-  const trendPassing = trendCells.filter((c) => c.status === "Passed").length
-
-  // Activity Criteria
-  const actCells = cells.filter((c) => c.metricType === "Activity Criteria")
-  const actBelow = actCells.filter((c) => c.status === "Failed").length
-  const actPassing = actCells.filter((c) => c.status === "Passed").length
+  const cards: MetricCardConfig[] = [
+    {
+      title: 'Days Available',
+      subtitle: 'Cell-KPI with low historical availability',
+      affected: metricStats.daysAvailable.affected,
+      percentage: metricStats.daysAvailable.percentage,
+      tab: 'days-available',
+      icon: CalendarClock,
+      accentClass: 'border-chart-1/20 bg-chart-1/10 text-chart-1',
+    },
+    {
+      title: 'Days Modified',
+      subtitle: 'Cell-KPI with corrected historical days',
+      affected: metricStats.daysModified.affected,
+      percentage: metricStats.daysModified.percentage,
+      tab: 'days-modified',
+      icon: Activity,
+      accentClass: 'border-warning/20 bg-warning/10 text-warning',
+    },
+    {
+      title: 'Trend Change',
+      subtitle: 'Cell-KPI with baseline behavior shifts',
+      affected: metricStats.trendChange.affected,
+      percentage: metricStats.trendChange.percentage,
+      tab: 'trend-change',
+      icon: TrendingUp,
+      accentClass: 'border-chart-4/20 bg-chart-4/10 text-chart-4',
+    },
+    {
+      title: 'Insufficient History',
+      subtitle: 'Records excluded due to missing history depth',
+      affected: metricStats.insufficientHistory.affected,
+      percentage: metricStats.insufficientHistory.percentage,
+      tab: 'insufficient-history',
+      icon: History,
+      accentClass: 'border-muted-foreground/20 bg-muted text-foreground',
+    },
+    {
+      title: 'Insufficient ROPs',
+      subtitle: 'Records with insufficient ROP samples',
+      affected: metricStats.insufficientRops.affected,
+      percentage: metricStats.insufficientRops.percentage,
+      tab: 'insufficient-rops',
+      icon: RadioTower,
+      accentClass: 'border-chart-3/20 bg-chart-3/10 text-chart-3',
+    },
+    {
+      title: 'Activity Criteria',
+      subtitle: 'Exclusions driven by modulator rules',
+      affected: metricStats.activityCriteria.affected,
+      percentage: metricStats.activityCriteria.percentage,
+      tab: 'activity-criteria',
+      icon: Waypoints,
+      accentClass: 'border-primary/20 bg-primary/10 text-primary',
+    },
+  ]
 
   return (
-    <div>
-      <h2 className="text-base font-semibold text-foreground mb-3">Data Quality Metrics</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <DQMetricCard
-          title="Off-Hours ROPs Coverage"
-          icon={<Clock className="h-4 w-4 text-primary" />}
-          belowThreshold={ropsBelow}
-          passingThreshold={ropsPassing}
-          total={ropsCells.length}
-          threshold="≥80%"
-        />
-        <DQMetricCard
-          title="Insufficient Historical Data"
-          icon={<History className="h-4 w-4 text-primary" />}
-          belowThreshold={histBelow}
-          passingThreshold={histPassing}
-          total={histCells.length}
-          threshold="≥7 days"
-        />
-        <DQMetricCard
-          title="Modified Historical Data"
-          icon={<RefreshCw className="h-4 w-4 text-primary" />}
-          belowThreshold={modBelow}
-          passingThreshold={modPassing}
-          total={modCells.length}
-          threshold="0 corrections"
-        />
-        <DQMetricCard
-          title="Trend Change Detection"
-          icon={<TrendingUp className="h-4 w-4 text-primary" />}
-          belowThreshold={trendBelow}
-          passingThreshold={trendPassing}
-          total={trendCells.length}
-          threshold="≤15%"
-        />
-        <DQMetricCard
-          title="Activity Criteria Filtering"
-          icon={<Activity className="h-4 w-4 text-primary" />}
-          belowThreshold={actBelow}
-          passingThreshold={actPassing}
-          total={actCells.length}
-          threshold="≥50%"
-        />
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      {cards.map((card) => (
+        <MetricCard key={card.title} {...card} />
+      ))}
     </div>
   )
 }

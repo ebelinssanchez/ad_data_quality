@@ -2,15 +2,15 @@
 export interface DataQualityRecord {
   metric: string
   cell: string
-  cgi: string
+  cgi?: string | null
   trend_change: boolean | null
   days_available: number | null
   days_modified: number
   timestamp: string
-  timespan: number
-  year: number
-  month: number
-  day: number
+  timespan?: number | null
+  year?: number | null
+  month?: number | null
+  day?: number | null
 }
 
 // Discards record from bd_kpi_ad_data_quality_discards (extended columns)
@@ -32,16 +32,16 @@ export interface CellInventory {
   region: string
   province: string
   site_name: string
-  site_id: string
+  site_id?: string | null
   node_name: string
   cell_name: string
   band: string
   town: string
-  sector_type: string
+  sector_type?: string | null
   tech_id: string
-  latitude: number
-  longitude: number
-  is_active: string
+  latitude?: number | null
+  longitude?: number | null
+  is_active?: string | null
 }
 
 // Enriched record after joining
@@ -117,8 +117,9 @@ export interface PieChartData {
 
 // Tab panel names
 export type PanelTab = 
-  | 'overview' 
-  | 'days-available' 
+  | 'days-available'
   | 'days-modified' 
   | 'trend-change'
+  | 'insufficient-history'
+  | 'insufficient-rops'
   | 'activity-criteria'

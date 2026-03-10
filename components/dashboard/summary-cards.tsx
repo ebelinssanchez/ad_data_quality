@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, CheckCircle2, AlertTriangle, XCircle, Percent, Info } from 'lucide-react'
+import { BarChart3, CheckCircle2, AlertTriangle, ShieldBan, Percent, Info } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useData } from '@/lib/data-context'
@@ -16,7 +16,7 @@ interface MetricCardProps {
 
 function MetricCard({ title, value, tooltip, icon: Icon, color, bgColor }: MetricCardProps) {
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="relative overflow-hidden border-border/70 bg-card/95 shadow-sm">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -103,15 +103,15 @@ export function SummaryCards() {
         tooltip="Cell-KPI pairs that passed all data quality checks"
       />
       <MetricCard
-        title="Excluded by Conditions"
+        title="Excluded by Condition"
         value={summaryStats.excluded}
-        icon={XCircle}
+        icon={ShieldBan}
         color="text-muted-foreground"
-        bgColor="bg-muted"
-        tooltip="Cell-KPI pairs excluded due to specific conditions like trend change or insufficient history"
+        bgColor="bg-muted/80"
+        tooltip="Cell-KPI excluded from evaluation due to trend change, low history, insufficient ROPs, or activity criteria"
       />
       <MetricCard
-        title="Data Quality Coverage"
+        title="Data Quality Coverage %"
         value={`${summaryStats.coverageRate.toFixed(1)}%`}
         icon={Percent}
         color={coverageColor}
