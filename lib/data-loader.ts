@@ -9,6 +9,7 @@ export async function loadDataQualityCSV(): Promise<DataQualityRecord[]> {
   return new Promise((resolve) => {
     Papa.parse<DataQualityRecord>(csvText, {
       header: true,
+      delimiter: '',
       skipEmptyLines: true,
       dynamicTyping: true,
       transform: (value, field) => {
@@ -38,6 +39,7 @@ export async function loadDiscardsCSV(): Promise<DiscardsRecord[]> {
     return new Promise((resolve) => {
       Papa.parse<DiscardsRecord>(csvText, {
         header: true,
+        delimiter: '',
         skipEmptyLines: true,
         dynamicTyping: true,
         transform: (value, field) => {
@@ -64,6 +66,7 @@ export async function loadCellsInventoryCSV(): Promise<CellInventory[]> {
   return new Promise((resolve) => {
     Papa.parse<CellInventory>(csvText, {
       header: true,
+      delimiter: '',
       skipEmptyLines: true,
       dynamicTyping: true,
       complete: (results) => {
