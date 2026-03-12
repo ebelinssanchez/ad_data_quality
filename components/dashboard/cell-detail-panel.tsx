@@ -15,12 +15,12 @@ export function CellDetailPanel() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'Clear':
-        return <Badge className="bg-success/10 text-success border-success/20">Clear</Badge>
-      case 'Flagged':
-        return <Badge className="bg-warning/10 text-warning border-warning/20">Flagged</Badge>
-      case 'Excluded by Condition':
-        return <Badge variant="secondary">Excluded by Condition</Badge>
+      case 'Normal':
+        return <Badge className="bg-success/10 text-success border-success/20">Normal</Badge>
+      case 'Afectado':
+        return <Badge className="bg-warning/10 text-warning border-warning/20">Afectado</Badge>
+      case 'Excluido por condición':
+        return <Badge variant="secondary">Excluido por condición</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -32,7 +32,7 @@ export function CellDetailPanel() {
         <SheetHeader className="pb-4">
           <div className="flex items-start justify-between">
             <div>
-              <SheetTitle className="text-lg font-semibold">Cell Details</SheetTitle>
+              <SheetTitle className="text-lg font-semibold">Detalle de celda</SheetTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 {formatMetricName(selectedCell.metric)}
               </p>
@@ -51,7 +51,7 @@ export function CellDetailPanel() {
         <div className="space-y-6">
           {/* Status */}
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">DQ Status:</span>
+            <span className="text-sm text-muted-foreground">Estado DQ:</span>
             {getStatusBadge(selectedCell.dq_status)}
           </div>
 
@@ -203,8 +203,8 @@ export function CellDetailPanel() {
             
             <div className="p-3 rounded-lg bg-muted/50 border">
               <p className="text-sm">
-                {selectedCell.condition === 'None' 
-                  ? 'No data quality conditions detected. This cell-KPI pair passed all checks.'
+                {selectedCell.condition === 'Normal' 
+                  ? 'No se detectaron condiciones de calidad para esta anomalía.'
                   : selectedCell.condition
                 }
               </p>

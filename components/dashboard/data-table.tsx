@@ -33,6 +33,7 @@ type SortField =
   | 'site_name'
   | 'cell'
   | 'metric'
+  | 'anomaly_detected'
   | 'condition'
   | 'days_available'
   | 'days_modified'
@@ -66,21 +67,21 @@ const defaultColumnFilters: ColumnFilters = {
 }
 
 const statusRank: Record<EnrichedRecord['dq_status'], number> = {
-  Clear: 0,
-  Flagged: 1,
-  'Excluded by Condition': 2,
+  Normal: 0,
+  Afectado: 1,
+  'Excluido por condición': 2,
 }
 
 function StatusBadge({ status }: { status: EnrichedRecord['dq_status'] }) {
-  if (status === 'Clear') {
-    return <Badge className="border-success/20 bg-success/10 text-success">Clear</Badge>
+  if (status === 'Normal') {
+    return <Badge className="border-success/20 bg-success/10 text-success">Normal</Badge>
   }
 
-  if (status === 'Flagged') {
-    return <Badge className="border-warning/20 bg-warning/10 text-warning">Flagged</Badge>
+  if (status === 'Afectado') {
+    return <Badge className="border-warning/20 bg-warning/10 text-warning">Afectado</Badge>
   }
 
-  return <Badge variant="secondary">Excluded by Condition</Badge>
+  return <Badge variant="secondary">Excluido por condición</Badge>
 }
 
 export function DataTable() {
@@ -106,6 +107,7 @@ export function DataTable() {
           record.node_name,
           record.site_name,
           record.condition,
+          record.anomaly_detected,
           record.modulator_kpi ?? '',
         ].some((value) => value.toLowerCase().includes(term))
       )
@@ -201,12 +203,12 @@ export function DataTable() {
           <div>
             <CardTitle className="text-lg font-semibold">Detailed Analyst Table</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Rich Cell-KPI records with inventory enrichment, exclusion context and export-ready telemetry fields.
+              Vista principal de anomalías enriquecidas con inventario y señales de calidad.
             </p>
           </div>
           <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
-            Export filtered table
+            Exportar tabla filtrada
           </Button>
         </div>
 
@@ -220,22 +222,22 @@ export function DataTable() {
                 setCurrentPage(1)
               }}
               className="pl-9"
-              placeholder="Search cell, metric, node, modulator..."
+              placeholder="Buscar celda, métrica, nodo, modulador..."
             />
           </div>
 
           <Select value={columnFilters.province} onValueChange={(value) => setFilterValue('province', value)}>
-            <SelectTrigger><SelectValue placeholder="Province" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Provincia" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Provinces</SelectItem>
+              <SelectItem value="all">Todas las provincias</SelectItem>
               {filterOptions.provinces.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
             </SelectContent>
           </Select>
 
           <Select value={columnFilters.region} onValueChange={(value) => setFilterValue('region', value)}>
-            <SelectTrigger><SelectValue placeholder="Region" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Región" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Regions</SelectItem>
+              <SelectItem value="all">Todas las regiones</SelectItem>
               {filterOptions.regions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -243,63 +245,64 @@ export function DataTable() {
           <Select value={columnFilters.supplier} onValueChange={(value) => setFilterValue('supplier', value)}>
             <SelectTrigger><SelectValue placeholder="Vendor" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Vendors</SelectItem>
+              <SelectItem value="all">Todos los vendors</SelectItem>
               {filterOptions.vendors.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
             </SelectContent>
           </Select>
 
           <Select value={columnFilters.metric} onValueChange={(value) => setFilterValue('metric', value)}>
-            <SelectTrigger><SelectValue placeholder="Metric" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Métrica" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Metrics</SelectItem>
+              <SelectItem value="all">Todas las métricas</SelectItem>
               {filterOptions.metrics.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
             </SelectContent>
           </Select>
 
           <Select value={columnFilters.condition} onValueChange={(value) => setFilterValue('condition', value)}>
-            <SelectTrigger><SelectValue placeholder="Condition" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Condición" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Conditions</SelectItem>
+              <SelectItem value="all">Todas las condiciones</SelectItem>
               {filterOptions.conditions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
             </SelectContent>
           </Select>
 
           <Select value={columnFilters.dq_status} onValueChange={(value) => setFilterValue('dq_status', value)}>
-            <SelectTrigger><SelectValue placeholder="DQ Status" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Estado DQ" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="all">Todos los estados</SelectItem>
               {filterOptions.statuses.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{processedData.length.toLocaleString()} analyst rows</span>
-          <span>Click a row to inspect enriched record details.</span>
+          <span>{processedData.length.toLocaleString()} filas analíticas</span>
+          <span>Haz clic en una fila para ver detalle.</span>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="overflow-x-auto rounded-xl border">
-          <Table>
+        <div className="max-h-[58vh] overflow-auto rounded-xl border">
+          <Table className="min-w-[2100px]">
             <TableHeader>
               <TableRow className="bg-muted/40">
                 {[
-                  ['province', 'Province'],
-                  ['region', 'Region'],
+                  ['province', 'Provincia'],
+                  ['region', 'Región'],
                   ['supplier', 'Vendor'],
-                  ['node_name', 'Node'],
-                  ['site_name', 'Site Name'],
-                  ['cell', 'Cell'],
-                  ['metric', 'Metric'],
-                  ['condition', 'Condition'],
+                  ['node_name', 'Nodo'],
+                  ['site_name', 'Site'],
+                  ['cell', 'Celda'],
+                  ['metric', 'Métrica'],
+                  ['anomaly_detected', 'Anomalía detectada'],
+                  ['condition', 'Condición de calidad'],
                   ['days_available', 'Days Available'],
                   ['days_modified', 'Days Modified'],
                   ['historical_days_available', 'Historical Days Available'],
                   ['num_rops_available', 'ROPs Available'],
                   ['modulator_kpi', 'Modulator KPI'],
-                  ['value_modulator_kpi', 'Modulator Value'],
-                  ['dq_status', 'DQ Status'],
+                  ['value_modulator_kpi', 'Valor modulador'],
+                  ['dq_status', 'Estado DQ'],
                   ['timestamp', 'Timestamp'],
                 ].map(([field, label]) => (
                   <TableHead key={field}>
@@ -319,8 +322,8 @@ export function DataTable() {
             <TableBody>
               {paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={16} className="py-10 text-center text-muted-foreground">
-                    No telecom quality rows match the current search and column filters.
+                  <TableCell colSpan={17} className="py-10 text-center text-muted-foreground">
+                    No hay filas que cumplan los filtros y búsqueda actuales.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -333,20 +336,21 @@ export function DataTable() {
                     <TableCell className="text-xs font-medium">{record.province}</TableCell>
                     <TableCell className="text-xs">{record.region}</TableCell>
                     <TableCell className="text-xs">{record.supplier}</TableCell>
-                    <TableCell className="max-w-[160px] text-xs">{record.node_name}</TableCell>
-                    <TableCell className="max-w-[180px] text-xs">{record.site_name}</TableCell>
-                    <TableCell className="max-w-[180px] font-mono text-xs">{record.cell}</TableCell>
-                    <TableCell className="min-w-[180px] text-xs">{formatMetricName(record.metric)}</TableCell>
-                    <TableCell className="min-w-[180px] text-xs text-muted-foreground">{record.condition}</TableCell>
-                    <TableCell className="text-center font-mono text-xs">{record.days_available ?? 'N/A'}</TableCell>
+                    <TableCell className="max-w-[180px] whitespace-normal break-all text-xs">{record.node_name}</TableCell>
+                    <TableCell className="max-w-[220px] whitespace-normal break-all text-xs">{record.site_name}</TableCell>
+                    <TableCell className="max-w-[260px] whitespace-normal break-all font-mono text-xs">{record.cell}</TableCell>
+                    <TableCell className="max-w-[300px] whitespace-normal break-words text-xs">{formatMetricName(record.metric)}</TableCell>
+                    <TableCell className="text-center text-xs">{record.anomaly_detected}</TableCell>
+                    <TableCell className="max-w-[280px] whitespace-normal break-words text-xs text-muted-foreground">{record.condition}</TableCell>
+                    <TableCell className="text-center font-mono text-xs">{record.days_available ?? 'N/D'}</TableCell>
                     <TableCell className="text-center font-mono text-xs">{record.days_modified}</TableCell>
-                    <TableCell className="text-center font-mono text-xs">{record.historical_days_available ?? 'N/A'}</TableCell>
-                    <TableCell className="text-center font-mono text-xs">{record.num_rops_available ?? 'N/A'}</TableCell>
-                    <TableCell className="max-w-[180px] text-xs">{record.modulator_kpi ?? 'N/A'}</TableCell>
-                    <TableCell className="text-center font-mono text-xs">{record.value_modulator_kpi ?? 'N/A'}</TableCell>
+                    <TableCell className="text-center font-mono text-xs">{record.historical_days_available ?? 'N/D'}</TableCell>
+                    <TableCell className="text-center font-mono text-xs">{record.num_rops_available ?? 'N/D'}</TableCell>
+                    <TableCell className="max-w-[260px] whitespace-normal break-words text-xs">{record.modulator_kpi ?? 'N/D'}</TableCell>
+                    <TableCell className="max-w-[200px] whitespace-normal break-all text-center font-mono text-xs">{record.value_modulator_kpi ?? 'N/D'}</TableCell>
                     <TableCell><StatusBadge status={record.dq_status} /></TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {record.timestamp ? new Date(record.timestamp).toLocaleString() : 'N/A'}
+                      {record.timestamp ? new Date(record.timestamp).toLocaleString() : 'N/D'}
                     </TableCell>
                   </TableRow>
                 ))
@@ -357,7 +361,7 @@ export function DataTable() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
+            Página {currentPage} de {totalPages}
           </span>
           <div className="flex items-center gap-2">
             <Button

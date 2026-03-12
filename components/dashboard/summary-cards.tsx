@@ -1,6 +1,5 @@
 'use client'
-
-import { BarChart3, CheckCircle2, AlertTriangle, ShieldBan, Percent, Info } from 'lucide-react'
+import { AlertTriangle, BarChart3, CheckCircle2, Info, Percent, ShieldBan } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useData } from '@/lib/data-context'
@@ -14,13 +13,21 @@ interface MetricCardProps {
   bgColor: string
 }
 
+interface LevelStats {
+  total: number
+  flagged: number
+  clear: number
+  excluded: number
+  coverageRate: number
+}
+
 function MetricCard({ title, value, tooltip, icon: Icon, color, bgColor }: MetricCardProps) {
   return (
     <Card className="relative overflow-hidden border-border/70 bg-card/95 shadow-sm">
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="mb-2 flex items-center gap-1.5">
               <p className="text-sm text-muted-foreground">{title}</p>
               <TooltipProvider>
                 <Tooltip>
@@ -37,7 +44,7 @@ function MetricCard({ title, value, tooltip, icon: Icon, color, bgColor }: Metri
               {typeof value === 'number' ? value.toLocaleString() : value}
             </p>
           </div>
-          <div className={`p-2.5 rounded-lg ${bgColor}`}>
+          <div className={`rounded-lg p-2.5 ${bgColor}`}>
             <Icon className={`h-5 w-5 ${color}`} />
           </div>
         </div>
@@ -46,77 +53,136 @@ function MetricCard({ title, value, tooltip, icon: Icon, color, bgColor }: Metri
   )
 }
 
+function SummaryLevel({
+  title,
+  stats,
+  entityLabel,
+}: {
+  title: string
+  stats: LevelStats
+  entityLabel: 'anomalia' | 'cell-kpi'
+}) {
+  const coverageColor =
+    stats.coverageRate >= 80
+      ? 'text-success'
+      : stats.coverageRate >= 50
+        ? 'text-warning'
+        : 'text-destructive'
+
+  const coverageBgColor =
+    stats.coverageRate >= 80
+      ? 'bg-success/10'
+      : stats.coverageRate >= 50
+        ? 'bg-warning/10'
+        : 'bg-destructive/10'
+
+  const labels =
+    entityLabel === 'anomalia'
+      ? {
+          total: 'Anomalías detectadas',
+          flagged: 'Anomalías con problemas de calidad',
+          clear: 'Anomalías con datos fiables',
+          excluded: 'Anomalías excluidas por reglas',
+          coverage: 'Cobertura de calidad',
+        }
+      : {
+          total: 'Cell-KPI evaluados',
+          flagged: 'Cell-KPI con problemas de calidad',
+          clear: 'Cell-KPI con datos fiables',
+          excluded: 'Cell-KPI excluidos por reglas',
+          coverage: 'Cobertura de calidad del dato',
+        }
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h3>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <MetricCard
+          title={labels.total}
+          value={stats.total}
+          icon={BarChart3}
+          color="text-primary"
+          bgColor="bg-primary/10"
+          tooltip={`Total de ${entityLabel}s en la vista filtrada.`}
+        />
+        <MetricCard
+          title={labels.flagged}
+          value={stats.flagged}
+          icon={AlertTriangle}
+          color="text-warning"
+          bgColor="bg-warning/10"
+          tooltip={`${entityLabel}s en estado Afectado o Excluido por condicion.`}
+        />
+        <MetricCard
+          title={labels.clear}
+          value={stats.clear}
+          icon={CheckCircle2}
+          color="text-success"
+          bgColor="bg-success/10"
+          tooltip={`${entityLabel}s en estado Normal.`}
+        />
+        <MetricCard
+          title={labels.excluded}
+          value={stats.excluded}
+          icon={ShieldBan}
+          color="text-muted-foreground"
+          bgColor="bg-muted/80"
+          tooltip={`${entityLabel}s excluidos por reglas de calidad del dato.`}
+        />
+        <MetricCard
+          title={labels.coverage}
+          value={`${stats.coverageRate.toFixed(1)}%`}
+          icon={Percent}
+          color={coverageColor}
+          bgColor={coverageBgColor}
+          tooltip={`Porcentaje de ${entityLabel}s en estado Normal.`}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function SummaryCards() {
-  const { summaryStats, isLoading } = useData()
+  const { anomalySummaryStats, summaryStats, isLoading } = useData()
+
+  const cellKpiStats: LevelStats = {
+    total: summaryStats.totalCellKPI,
+    flagged: summaryStats.flagged,
+    clear: summaryStats.clear,
+    excluded: summaryStats.excluded,
+    coverageRate: summaryStats.coverageRate,
+  }
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {[...Array(5)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-5">
-              <div className="h-4 bg-muted rounded w-28 mb-3" />
-              <div className="h-8 bg-muted rounded w-20" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-4">
+        <Card className="animate-pulse">
+          <CardContent className="p-5">
+            <div className="h-4 w-56 rounded bg-muted" />
+            <div className="mt-3 h-10 rounded bg-muted" />
+          </CardContent>
+        </Card>
+        <Card className="animate-pulse">
+          <CardContent className="p-5">
+            <div className="h-4 w-64 rounded bg-muted" />
+            <div className="mt-3 h-10 rounded bg-muted" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  const coverageColor = summaryStats.coverageRate >= 80 
-    ? 'text-success' 
-    : summaryStats.coverageRate >= 50 
-      ? 'text-warning' 
-      : 'text-destructive'
-
-  const coverageBgColor = summaryStats.coverageRate >= 80 
-    ? 'bg-success/10' 
-    : summaryStats.coverageRate >= 50 
-      ? 'bg-warning/10' 
-      : 'bg-destructive/10'
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-      <MetricCard
-        title="Total Cell-KPI Evaluated"
-        value={summaryStats.totalCellKPI}
-        icon={BarChart3}
-        color="text-primary"
-        bgColor="bg-primary/10"
-        tooltip="Total number of cell-KPI pairs processed in the data quality analysis"
+    <div className="space-y-6">
+      <SummaryLevel
+        title="Resumen de anomalías detectadas"
+        stats={anomalySummaryStats}
+        entityLabel="anomalia"
       />
-      <MetricCard
-        title="Cell-KPI Flagged"
-        value={summaryStats.flagged}
-        icon={AlertTriangle}
-        color="text-warning"
-        bgColor="bg-warning/10"
-        tooltip="Cell-KPI pairs that are not Clear (includes Excluded by Condition)"
-      />
-      <MetricCard
-        title="Cell-KPI Clear"
-        value={summaryStats.clear}
-        icon={CheckCircle2}
-        color="text-success"
-        bgColor="bg-success/10"
-        tooltip="Cell-KPI pairs that passed all data quality checks"
-      />
-      <MetricCard
-        title="Excluded by Condition"
-        value={summaryStats.excluded}
-        icon={ShieldBan}
-        color="text-muted-foreground"
-        bgColor="bg-muted/80"
-        tooltip="Cell-KPI excluded from evaluation due to trend change, low history, insufficient ROPs, or activity criteria"
-      />
-      <MetricCard
-        title="Data Quality Coverage %"
-        value={`${summaryStats.coverageRate.toFixed(1)}%`}
-        icon={Percent}
-        color={coverageColor}
-        bgColor={coverageBgColor}
-        tooltip="Percentage of cell-KPI pairs that passed data quality checks"
+      <SummaryLevel
+        title="Diagnóstico de calidad del dato (Cell-KPI)"
+        stats={cellKpiStats}
+        entityLabel="cell-kpi"
       />
     </div>
   )

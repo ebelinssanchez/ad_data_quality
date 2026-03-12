@@ -23,17 +23,17 @@ export function DashboardHeader() {
           <div>
             <div className="mb-2 flex items-center gap-2">
               <span className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Telecom Analytics
+                Analítica Telecom
               </span>
               <span className="rounded-full border border-success/20 bg-success/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-success">
-                Data Quality
+                Calidad del dato
               </span>
             </div>
             <h1 className="text-2xl font-semibold text-foreground">
-              AD Data Quality Control Tower
+              Control de Calidad de Anomalías RAN
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Unified monitoring for Cell-KPI quality, exclusions and inventory-enriched telecom diagnostics.
+              Revisión operativa de anomalías detectadas y su fiabilidad de dato.
             </p>
           </div>
         </div>
@@ -42,15 +42,15 @@ export function DashboardHeader() {
           <div className="rounded-xl border border-border bg-card/80 px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
               <ShieldCheck className="h-4 w-4 text-success" />
-              Analyst workspace
+              Espacio de optimización
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Export the current filtered telecom view at any time.
+              Exporta en cualquier momento la vista filtrada.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={handleExport} className="h-11 px-4">
             <Download className="mr-2 h-4 w-4" />
-            Export current view
+            Exportar vista actual
           </Button>
         </div>
       </div>

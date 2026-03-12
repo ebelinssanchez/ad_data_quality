@@ -8,8 +8,8 @@ const tabs: { value: PanelTab; label: string }[] = [
   { value: 'days-available', label: 'Days Available' },
   { value: 'days-modified', label: 'Days Modified' },
   { value: 'trend-change', label: 'Trend Change' },
-  { value: 'insufficient-history', label: 'Insufficient History' },
-  { value: 'insufficient-rops', label: 'Insufficient ROPs' },
+  { value: 'insufficient-history', label: 'Histórico insuficiente' },
+  { value: 'insufficient-rops', label: 'ROPs insuficientes' },
   { value: 'activity-criteria', label: 'Activity Criteria' },
 ]
 

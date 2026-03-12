@@ -16,14 +16,15 @@ import { useData } from '@/lib/data-context'
 import type { FilterState } from '@/lib/types'
 
 const filterConfig = [
-  { field: 'province', label: 'Province', placeholder: 'All Provinces', optionKey: 'provinces' },
-  { field: 'region', label: 'Region', placeholder: 'All Regions', optionKey: 'regions' },
-  { field: 'vendor', label: 'Vendor', placeholder: 'All Vendors', optionKey: 'vendors' },
-  { field: 'technology', label: 'Band', placeholder: 'All Bands', optionKey: 'technologies' },
-  { field: 'metric', label: 'Metric', placeholder: 'All Metrics', optionKey: 'metrics' },
-  { field: 'node', label: 'Node', placeholder: 'All Nodes', optionKey: 'nodes' },
-  { field: 'status', label: 'DQ Status', placeholder: 'All Status', optionKey: 'statuses' },
-  { field: 'condition', label: 'Condition', placeholder: 'All Conditions', optionKey: 'conditions' },
+  { field: 'anomaly', label: 'Anomalia detectada (cluster)', placeholder: 'Todos los clusters de anomalia', optionKey: 'anomalies' },
+  { field: 'province', label: 'Provincia', placeholder: 'Todas las provincias', optionKey: 'provinces' },
+  { field: 'region', label: 'Region', placeholder: 'Todas las regiones', optionKey: 'regions' },
+  { field: 'vendor', label: 'Vendor', placeholder: 'Todos los vendors', optionKey: 'vendors' },
+  { field: 'technology', label: 'Banda', placeholder: 'Todas las bandas', optionKey: 'technologies' },
+  { field: 'metric', label: 'Metrica', placeholder: 'Todas las metricas', optionKey: 'metrics' },
+  { field: 'node', label: 'Nodo', placeholder: 'Todos los nodos', optionKey: 'nodes' },
+  { field: 'status', label: 'Estado de calidad', placeholder: 'Todos los estados', optionKey: 'statuses' },
+  { field: 'condition', label: 'Condicion', placeholder: 'Todas las condiciones', optionKey: 'conditions' },
 ] as const
 
 type FilterField = Exclude<keyof FilterState, 'dateRange'>
@@ -78,7 +79,7 @@ export function FiltersPanel() {
     const selected = filters[field]
     if (selected.length === 0) return placeholder
     if (selected.length === 1) return selected[0]
-    return `${selected.length} selected`
+    return `${selected.length} seleccionadas`
   }
 
   const toggleFilterValue = (field: FilterField, value: string) => {
@@ -124,10 +125,10 @@ export function FiltersPanel() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium">
             <Filter className="h-4 w-4 text-primary" />
-            Analyst Filters
+            Filtros
           </div>
           <p className="text-sm text-muted-foreground">
-            Slice the telecom inventory and quality conditions across geography, vendor and exclusion type.
+            Filtra por cluster de anomalia o por contexto Cell-KPI para diagnostico operativo.
           </p>
           {hasActiveFilters && (
             <Button
@@ -137,7 +138,7 @@ export function FiltersPanel() {
               className="ml-auto"
             >
               <RotateCcw className="mr-2 h-4 w-4" />
-              Reset filters
+              Limpiar filtros
             </Button>
           )}
         </div>
@@ -158,7 +159,7 @@ export function FiltersPanel() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="max-h-80 w-72 overflow-y-auto">
                   <DropdownMenuItem onClick={() => removeFilter(field)}>
-                    Clear {label}
+                    Limpiar {label}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   {getOptions(field, optionKey).slice(0, 160).map((option) => (
@@ -195,3 +196,4 @@ export function FiltersPanel() {
     </section>
   )
 }
+

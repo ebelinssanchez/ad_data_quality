@@ -2,28 +2,18 @@
 
 import { Activity, CalendarClock, History, RadioTower, TrendingUp, Waypoints } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { useData } from '@/lib/data-context'
-import type { PanelTab } from '@/lib/types'
 
 type MetricCardConfig = {
   title: string
   subtitle: string
   affected: number
   percentage: number
-  tab: PanelTab
   icon: React.ElementType
   accentClass: string
 }
 
-function MetricCard({ title, subtitle, affected, percentage, tab, icon: Icon, accentClass }: MetricCardConfig) {
-  const { setActiveTab } = useData()
-
-  const openPanel = () => {
-    setActiveTab(tab)
-    globalThis.document?.getElementById('detailed-panels')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
+function MetricCard({ title, subtitle, affected, percentage, icon: Icon, accentClass }: MetricCardConfig) {
   return (
     <Card className="border-border/70 bg-card/95 shadow-sm">
       <CardHeader className="pb-3">
@@ -37,21 +27,17 @@ function MetricCard({ title, subtitle, affected, percentage, tab, icon: Icon, ac
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-2xl font-semibold">{affected.toLocaleString()}</p>
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Affected count</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Afectadas</p>
           </div>
           <div className="text-right">
             <p className="text-lg font-medium">{percentage.toFixed(1)}%</p>
-            <p className="text-xs text-muted-foreground">of filtered Cell-KPI</p>
+            <p className="text-xs text-muted-foreground">sobre Cell-KPI filtrados</p>
           </div>
         </div>
-
-        <Button variant="outline" size="sm" className="w-full" onClick={openPanel}>
-          Open detailed panel
-        </Button>
       </CardContent>
     </Card>
   )
@@ -79,55 +65,49 @@ export function DQMetricsCards() {
   const cards: MetricCardConfig[] = [
     {
       title: 'Days Available',
-      subtitle: 'Cell-KPI with low historical availability',
+      subtitle: 'Cell-KPI con baja disponibilidad historica',
       affected: metricStats.daysAvailable.affected,
       percentage: metricStats.daysAvailable.percentage,
-      tab: 'days-available',
       icon: CalendarClock,
       accentClass: 'border-chart-1/20 bg-chart-1/10 text-chart-1',
     },
     {
       title: 'Days Modified',
-      subtitle: 'Cell-KPI with corrected historical days',
+      subtitle: 'Cell-KPI con historico corregido',
       affected: metricStats.daysModified.affected,
       percentage: metricStats.daysModified.percentage,
-      tab: 'days-modified',
       icon: Activity,
       accentClass: 'border-warning/20 bg-warning/10 text-warning',
     },
     {
       title: 'Trend Change',
-      subtitle: 'Cell-KPI with baseline behavior shifts',
+      subtitle: 'Cell-KPI con cambio estructural de tendencia',
       affected: metricStats.trendChange.affected,
       percentage: metricStats.trendChange.percentage,
-      tab: 'trend-change',
       icon: TrendingUp,
       accentClass: 'border-chart-4/20 bg-chart-4/10 text-chart-4',
     },
     {
       title: 'Insufficient History',
-      subtitle: 'Records excluded due to missing history depth',
+      subtitle: 'Exclusiones por historico insuficiente',
       affected: metricStats.insufficientHistory.affected,
       percentage: metricStats.insufficientHistory.percentage,
-      tab: 'insufficient-history',
       icon: History,
       accentClass: 'border-muted-foreground/20 bg-muted text-foreground',
     },
     {
       title: 'Insufficient ROPs',
-      subtitle: 'Records with insufficient ROP samples',
+      subtitle: 'Exclusiones por ROPs insuficientes',
       affected: metricStats.insufficientRops.affected,
       percentage: metricStats.insufficientRops.percentage,
-      tab: 'insufficient-rops',
       icon: RadioTower,
       accentClass: 'border-chart-3/20 bg-chart-3/10 text-chart-3',
     },
     {
       title: 'Activity Criteria',
-      subtitle: 'Exclusions driven by modulator rules',
+      subtitle: 'Exclusiones por reglas de modulador',
       affected: metricStats.activityCriteria.affected,
       percentage: metricStats.activityCriteria.percentage,
-      tab: 'activity-criteria',
       icon: Waypoints,
       accentClass: 'border-primary/20 bg-primary/10 text-primary',
     },

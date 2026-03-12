@@ -1,27 +1,113 @@
 import Papa from 'papaparse'
-import type { DataQualityRecord, DiscardsRecord, CellInventory, EnrichedRecord, FilterState, SummaryStats, MetricStats, BarChartData } from './types'
+import type {
+  AnomalyRecord,
+  DataQualityRecord,
+  DiscardsRecord,
+  CellInventory,
+  EnrichedRecord,
+  FilterState,
+  SummaryStats,
+  MetricStats,
+  BarChartData,
+} from './types'
+
+function normalizeKey(value: string | null | undefined): string {
+  return String(value ?? '').trim().toUpperCase()
+}
+
+function parseDelimited<T>(
+  text: string,
+  transform?: (value: string, field: string | number) => unknown,
+  delimiter = ''
+): Promise<T[]> {
+  return new Promise((resolve) => {
+    Papa.parse<T>(text, {
+      header: true,
+      delimiter,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      transform,
+      complete: (results) => resolve(results.data),
+    })
+  })
+}
+
+export async function loadAnomaliesCSV(): Promise<AnomalyRecord[]> {
+  try {
+    const response = await fetch('/data/export_08_03.csv')
+    if (!response.ok) return []
+    const csvText = await response.text()
+    const headerLine = csvText.split('\n')[0] ?? ''
+    const semicolonCount = (headerLine.match(/;/g) || []).length
+    const tabCount = (headerLine.match(/\t/g) || []).length
+    const commaCount = (headerLine.match(/,/g) || []).length
+    const delimiter = semicolonCount > commaCount && semicolonCount > tabCount
+      ? ';'
+      : tabCount > commaCount
+        ? '\t'
+        : ','
+
+    const rows = await parseDelimited<Record<string, unknown>>(csvText, (value) => {
+      if (value === 'null' || value === '') return null
+      return value
+    }, delimiter)
+
+    const normalizeHeader = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '')
+        .toLowerCase()
+
+    const pickString = (row: Record<string, unknown>, keys: string[]): string => {
+      const byNormalized = new Map<string, unknown>()
+      Object.entries(row).forEach(([key, value]) => {
+        byNormalized.set(normalizeHeader(key), value)
+      })
+
+      for (const key of keys) {
+        const raw = byNormalized.get(normalizeHeader(key))
+        if (raw === null || raw === undefined) continue
+        const value = String(raw).trim()
+        if (value) return value
+      }
+      return ''
+    }
+
+    return rows
+      .map((row) => {
+        // Supports canonical exports and semicolon operational exports.
+        const cell = pickString(row, ['cell', 'cell_name', 'celda', 'cellname'])
+        const metric = pickString(row, ['metric', 'kpi_desviado', 'metrica', 'kpi', 'kpi_desviado'])
+        if (!metric || !cell) return null
+        return {
+          metric,
+          cell,
+          timestamp: pickString(row, ['timestamp', 'fecha_procesado', 'fecha']) || null,
+          anomaly_detected:
+            pickString(row, ['anomaly_detected', 'anomalia', 'anomaly_cluster_name', 'cluster_name']) ||
+            'Detectada',
+          raw: Object.fromEntries(
+            Object.entries(row).map(([k, v]) => [k, (v ?? null) as string | number | boolean | null])
+          ),
+        } satisfies AnomalyRecord
+      })
+      .filter((row): row is AnomalyRecord => row !== null)
+  } catch {
+    return []
+  }
+}
 
 // Parse CSV data
 export async function loadDataQualityCSV(): Promise<DataQualityRecord[]> {
   const response = await fetch('/data/bd_kpi_ad_data_quality.csv')
   const csvText = await response.text()
   
-  return new Promise((resolve) => {
-    Papa.parse<DataQualityRecord>(csvText, {
-      header: true,
-      delimiter: '',
-      skipEmptyLines: true,
-      dynamicTyping: true,
-      transform: (value, field) => {
-        if (value === 'null' || value === '') return null
-        if (field === 'trend_change') return value === 'true'
-        return value
-      },
-      complete: (results) => {
-        resolve(results.data)
-      }
-    })
-  })
+  return parseDelimited<DataQualityRecord>(csvText, (value, field) => {
+    if (value === 'null' || value === '') return null
+    if (field === 'trend_change') return value === 'true'
+    return value
+  }, '\t')
 }
 
 export async function loadDiscardsCSV(): Promise<DiscardsRecord[]> {
@@ -36,24 +122,13 @@ export async function loadDiscardsCSV(): Promise<DiscardsRecord[]> {
       return []
     }
     
-    return new Promise((resolve) => {
-      Papa.parse<DiscardsRecord>(csvText, {
-        header: true,
-        delimiter: '',
-        skipEmptyLines: true,
-        dynamicTyping: true,
-        transform: (value, field) => {
-          if (value === 'null' || value === '') return null
-          if (['insufficient_history', 'activity_criteria', 'insufficient_rops'].includes(field)) {
-            return value === 'true' || value === true
-          }
-          return value
-        },
-        complete: (results) => {
-          resolve(results.data)
-        }
-      })
-    })
+    return parseDelimited<DiscardsRecord>(csvText, (value, field) => {
+      if (value === 'null' || value === '') return null
+      if (['insufficient_history', 'activity_criteria', 'insufficient_rops'].includes(String(field))) {
+        return value === 'true' || value === true
+      }
+      return value
+    }, '\t')
   } catch {
     return []
   }
@@ -63,17 +138,7 @@ export async function loadCellsInventoryCSV(): Promise<CellInventory[]> {
   const response = await fetch('/data/cells_actuals.csv')
   const csvText = await response.text()
   
-  return new Promise((resolve) => {
-    Papa.parse<CellInventory>(csvText, {
-      header: true,
-      delimiter: '',
-      skipEmptyLines: true,
-      dynamicTyping: true,
-      complete: (results) => {
-        resolve(results.data)
-      }
-    })
-  })
+  return parseDelimited<CellInventory>(csvText)
 }
 
 // Create a lookup map for cells inventory using cell_name
@@ -83,7 +148,7 @@ export function createCellLookup(inventory: CellInventory[]): Map<string, CellIn
   for (const cell of inventory) {
     // Inventory must be joined using cells_actuals.cell_name.
     if (cell.cell_name) {
-      lookup.set(cell.cell_name, cell)
+      lookup.set(normalizeKey(cell.cell_name), cell)
     }
   }
   
@@ -96,7 +161,7 @@ export function createDiscardsLookup(discards: DiscardsRecord[]): Map<string, Di
   
   for (const record of discards) {
     if (record.cell && record.metric) {
-      const key = `${record.cell}|${record.metric}`
+      const key = `${normalizeKey(record.cell)}|${normalizeKey(record.metric)}`
       lookup.set(key, record)
     }
   }
@@ -104,51 +169,179 @@ export function createDiscardsLookup(discards: DiscardsRecord[]): Map<string, Di
   return lookup
 }
 
+export function createDQLookup(records: DataQualityRecord[]): Map<string, DataQualityRecord> {
+  const lookup = new Map<string, DataQualityRecord>()
+
+  for (const record of records) {
+    if (!record.cell || !record.metric) continue
+    const key = `${normalizeKey(record.cell)}|${normalizeKey(record.metric)}`
+    const existing = lookup.get(key)
+    if (!existing) {
+      lookup.set(key, record)
+      continue
+    }
+    const existingTs = existing.timestamp ? new Date(String(existing.timestamp)).getTime() : 0
+    const nextTs = record.timestamp ? new Date(String(record.timestamp)).getTime() : 0
+    if (nextTs >= existingTs) {
+      lookup.set(key, record)
+    }
+  }
+
+  return lookup
+}
+
+export function createUnifiedDQRecords(
+  dqRecords: DataQualityRecord[],
+  discardsRecords: DiscardsRecord[]
+): DataQualityRecord[] {
+  // Build one record per cell+metric using historical aggregation:
+  // - days_available: minimum non-null value
+  // - days_modified: maximum value
+  // - trend_change: true if true at least once
+  // - timestamp: latest timestamp
+  const aggregated = new Map<string, DataQualityRecord>()
+
+  for (const record of dqRecords) {
+    if (!record.cell || !record.metric) continue
+    const key = `${normalizeKey(record.cell)}|${normalizeKey(record.metric)}`
+    const existing = aggregated.get(key)
+
+    if (!existing) {
+      aggregated.set(key, { ...record })
+      continue
+    }
+
+    const existingTs = existing.timestamp ? new Date(String(existing.timestamp)).getTime() : 0
+    const nextTs = record.timestamp ? new Date(String(record.timestamp)).getTime() : 0
+    const latest = nextTs >= existingTs ? record : existing
+
+    const existingDays = existing.days_available
+    const nextDays = record.days_available
+    const minDaysAvailable =
+      existingDays === null
+        ? nextDays
+        : nextDays === null
+          ? existingDays
+          : Math.min(existingDays, nextDays)
+
+    aggregated.set(key, {
+      ...latest,
+      days_available: minDaysAvailable,
+      days_modified: Math.max(existing.days_modified ?? 0, record.days_modified ?? 0),
+      trend_change: (existing.trend_change === true) || (record.trend_change === true),
+    })
+  }
+
+  const keys = new Set<string>([...aggregated.keys()])
+  for (const discards of discardsRecords) {
+    if (discards.cell && discards.metric) keys.add(`${normalizeKey(discards.cell)}|${normalizeKey(discards.metric)}`)
+  }
+
+  return [...keys].map((key) => {
+    const existing = aggregated.get(key)
+    if (existing) return existing
+    const [cell, ...metricParts] = key.split('|')
+    const metric = metricParts.join('|')
+    return {
+      metric,
+      cell,
+      cgi: null,
+      trend_change: null,
+      days_available: null,
+      days_modified: 0,
+      timestamp: '',
+      timespan: null,
+      year: null,
+      month: null,
+      day: null,
+    } satisfies DataQualityRecord
+  })
+}
+
+export function createAnomalyLookup(anomalies: AnomalyRecord[]): Map<string, AnomalyRecord> {
+  const lookup = new Map<string, AnomalyRecord>()
+  for (const anomaly of anomalies) {
+    if (!anomaly.cell || !anomaly.metric) continue
+    const key = `${normalizeKey(anomaly.cell)}|${normalizeKey(anomaly.metric)}`
+    const existing = lookup.get(key)
+    if (!existing) {
+      lookup.set(key, anomaly)
+      continue
+    }
+    const existingTs = existing.timestamp ? new Date(String(existing.timestamp)).getTime() : 0
+    const nextTs = anomaly.timestamp ? new Date(String(anomaly.timestamp)).getTime() : 0
+    if (nextTs >= existingTs) lookup.set(key, anomaly)
+  }
+  return lookup
+}
+
+export function createAnomalyCellLookup(anomalies: AnomalyRecord[]): Map<string, AnomalyRecord> {
+  const lookup = new Map<string, AnomalyRecord>()
+  for (const anomaly of anomalies) {
+    if (!anomaly.cell) continue
+    const key = normalizeKey(anomaly.cell)
+    const existing = lookup.get(key)
+    if (!existing) {
+      lookup.set(key, anomaly)
+      continue
+    }
+    const existingTs = existing.timestamp ? new Date(String(existing.timestamp)).getTime() : 0
+    const nextTs = anomaly.timestamp ? new Date(String(anomaly.timestamp)).getTime() : 0
+    if (nextTs >= existingTs) lookup.set(key, anomaly)
+  }
+  return lookup
+}
+
 // Determine DQ status and conditions based on the data
 function determineDQStatus(
   record: DataQualityRecord, 
   discards: DiscardsRecord | undefined
-): { dq_status: 'Clear' | 'Flagged' | 'Excluded by Condition', condition: string, conditions: string[] } {
+): { dq_status: 'Normal' | 'Afectado' | 'Excluido por condición', condition: string, conditions: string[] } {
   const conditions: string[] = []
   
   // Check trend_change
   if (record.trend_change === true) {
-    conditions.push('Trend Change')
+    conditions.push('Cambio de tendencia')
   }
   
   // Check days_modified
   if (record.days_modified && record.days_modified > 0) {
-    conditions.push('Days Modified')
+    conditions.push('Días modificados')
   }
   
   // Check days_available (flagged if less than 14 days of historical data)
   if (record.days_available !== null && record.days_available < 14) {
-    conditions.push('Low Days Available')
+    conditions.push('Baja disponibilidad histórica')
   }
   
   // Check discards data if available
   if (discards) {
     if (discards.insufficient_history) {
-      conditions.push('Insufficient History')
+      conditions.push('Histórico insuficiente')
     }
     if (discards.insufficient_rops) {
-      conditions.push('Insufficient ROPs')
+      conditions.push('ROPs insuficientes')
     }
     if (discards.activity_criteria) {
-      conditions.push('Activity Criteria')
+      conditions.push('Criterio de actividad')
     }
   }
   
   if (conditions.length === 0) {
-    return { dq_status: 'Clear', condition: 'None', conditions: [] }
+    return { dq_status: 'Normal', condition: 'Normal', conditions: [] }
   }
   
-  // Determine if it's "Excluded by Condition" or just "Flagged"
-  const excludingConditions = ['Trend Change', 'Low Days Available', 'Insufficient History', 'Insufficient ROPs', 'Activity Criteria']
+  const excludingConditions = [
+    'Cambio de tendencia',
+    'Baja disponibilidad histórica',
+    'Histórico insuficiente',
+    'ROPs insuficientes',
+    'Criterio de actividad',
+  ]
   const hasExcludingCondition = conditions.some(c => excludingConditions.includes(c))
   
   return {
-    dq_status: hasExcludingCondition ? 'Excluded by Condition' : 'Flagged',
+    dq_status: hasExcludingCondition ? 'Excluido por condición' : 'Afectado',
     condition: conditions.join(', '),
     conditions
   }
@@ -156,29 +349,33 @@ function determineDQStatus(
 
 // Enrich data quality records with inventory and discards information
 export function enrichDataQuality(
-  records: DataQualityRecord[], 
+  baseRecords: DataQualityRecord[],
+  anomalyLookup: Map<string, AnomalyRecord>,
+  anomalyCellLookup: Map<string, AnomalyRecord>,
   cellLookup: Map<string, CellInventory>,
   discardsLookup: Map<string, DiscardsRecord>
 ): EnrichedRecord[] {
-  return records.map(record => {
-    // Metrics datasets use `cell`; inventory uses `cell_name`.
-    // The required enrichment join is: metrics.cell = cells_actuals.cell_name
-    const inventory = cellLookup.get(record.cell)
-    const discardsKey = `${record.cell}|${record.metric}`
-    const discards = discardsLookup.get(discardsKey)
-    const { dq_status, condition, conditions } = determineDQStatus(record, discards)
+  return baseRecords.map((baseRecord) => {
+    const key = `${normalizeKey(baseRecord.cell)}|${normalizeKey(baseRecord.metric)}`
+    const anomaly = anomalyLookup.get(key) ?? anomalyCellLookup.get(normalizeKey(baseRecord.cell))
+    // metrics.cell = cells_actuals.cell_name
+    const inventory = cellLookup.get(normalizeKey(baseRecord.cell))
+    const discards = discardsLookup.get(key)
+    const { dq_status, condition, conditions } = determineDQStatus(baseRecord, discards)
     
     return {
-      ...record,
+      ...baseRecord,
+      anomaly_detected: anomaly ? anomaly.anomaly_detected : 'Sin contexto',
+      anomaly_source_timestamp: anomaly?.timestamp ?? null,
       // From inventory
-      supplier: inventory?.supplier || 'Not mapped',
-      region: inventory?.region || 'Not mapped',
-      province: inventory?.province || 'Not mapped',
-      site_name: inventory?.site_name || 'Not mapped',
-      node_name: inventory?.node_name || 'Not mapped',
-      band: inventory?.band || 'Not mapped',
-      town: inventory?.town || 'Not mapped',
-      tech_id: inventory?.tech_id || 'Not mapped',
+      supplier: inventory?.supplier || 'Sin mapeo',
+      region: inventory?.region || 'Sin mapeo',
+      province: inventory?.province || 'Sin mapeo',
+      site_name: inventory?.site_name || 'Sin mapeo',
+      node_name: inventory?.node_name || 'Sin mapeo',
+      band: inventory?.band || 'Sin mapeo',
+      town: inventory?.town || 'Sin mapeo',
+      tech_id: inventory?.tech_id || 'Sin mapeo',
       // From discards
       historical_days_available: discards?.historical_days_available ?? null,
       insufficient_history: discards?.insufficient_history ?? false,
@@ -198,6 +395,11 @@ export function enrichDataQuality(
 // Apply filters to data
 export function applyFilters(data: EnrichedRecord[], filters: FilterState): EnrichedRecord[] {
   return data.filter(record => {
+    // Anomaly filter (diagnostic mode)
+    if (filters.anomaly.length > 0 && !filters.anomaly.includes(record.anomaly_detected)) {
+      return false
+    }
+
     // Province filter
     if (filters.province.length > 0 && !filters.province.includes(record.province)) {
       return false
@@ -251,11 +453,9 @@ export function applyFilters(data: EnrichedRecord[], filters: FilterState): Enri
 // Calculate summary statistics
 export function calculateSummaryStats(data: EnrichedRecord[]): SummaryStats {
   const total = data.length
-  // Business semantics: anything not Clear is considered Flagged.
-  // "Excluded by Condition" is kept as a dedicated breakdown card.
-  const flagged = data.filter(r => r.dq_status !== 'Clear').length
-  const excluded = data.filter(r => r.dq_status === 'Excluded by Condition').length
-  const clear = data.filter(r => r.dq_status === 'Clear').length
+  const flagged = data.filter(r => r.dq_status !== 'Normal').length
+  const excluded = data.filter(r => r.dq_status === 'Excluido por condición').length
+  const clear = data.filter(r => r.dq_status === 'Normal').length
   
   return {
     totalCellKPI: total,
@@ -307,6 +507,7 @@ export function calculateMetricStats(data: EnrichedRecord[]): MetricStats {
 
 // Get unique values for filters
 export function getUniqueValues(data: EnrichedRecord[]): {
+  anomalies: string[]
   provinces: string[]
   regions: string[]
   vendors: string[]
@@ -321,6 +522,9 @@ export function getUniqueValues(data: EnrichedRecord[]): {
   data.forEach(r => r.conditions.forEach(c => allConditions.add(c)))
   
   return {
+    anomalies: [...new Set(data.map(r => r.anomaly_detected))]
+      .filter((v) => Boolean(v) && v !== 'Sin contexto')
+      .sort(),
     provinces: [...new Set(data.map(r => r.province))].filter(Boolean).sort(),
     regions: [...new Set(data.map(r => r.region))].filter(Boolean).sort(),
     vendors: [...new Set(data.map(r => r.supplier))].filter(Boolean).sort(),
@@ -328,7 +532,7 @@ export function getUniqueValues(data: EnrichedRecord[]): {
     metrics: [...new Set(data.map(r => r.metric))].filter(Boolean).sort(),
     nodes: [...new Set(data.map(r => r.node_name))].filter(Boolean).sort(),
     cells: [...new Set(data.map(r => r.cell))].filter(Boolean).sort(),
-    statuses: ['Clear', 'Flagged', 'Excluded by Condition'],
+    statuses: ['Normal', 'Afectado', 'Excluido por condición'],
     conditions: [...allConditions].sort()
   }
 }
@@ -348,8 +552,24 @@ export function aggregateByField(data: EnrichedRecord[], field: keyof EnrichedRe
     .map(([name, value]) => ({ name, value }))
 }
 
+export function aggregateByFieldMapped(
+  data: EnrichedRecord[],
+  field: keyof EnrichedRecord,
+  limit = 10
+): BarChartData[] {
+  const filtered = data.filter((record) => {
+    const value = String(record[field] ?? '').trim()
+    return value !== '' && value !== 'Unknown' && value !== 'Sin mapeo'
+  })
+  return aggregateByField(filtered, field, limit)
+}
+
 export function aggregateFlaggedByField(data: EnrichedRecord[], field: keyof EnrichedRecord, limit = 10): BarChartData[] {
-  const flaggedData = data.filter(r => r.dq_status !== 'Clear')
+  const flaggedData = data.filter((r) => {
+    if (r.dq_status === 'Normal') return false
+    const value = String(r[field] ?? '').trim()
+    return value !== '' && value !== 'Unknown' && value !== 'Sin mapeo'
+  })
   return aggregateByField(flaggedData, field, limit)
 }
 
@@ -363,10 +583,10 @@ export function aggregateFlaggedUniqueCellsByField(
   const cellsByGroup = new Map<string, Set<string>>()
 
   for (const record of data) {
-    if (record.dq_status === 'Clear') continue
+    if (record.dq_status === 'Normal') continue
 
     const group = String(record[field] || 'Unknown')
-    if (!group || group === 'Unknown' || group === 'Not mapped') continue
+    if (!group || group === 'Unknown' || group === 'Sin mapeo') continue
 
     if (!cellsByGroup.has(group)) {
       cellsByGroup.set(group, new Set<string>())
@@ -434,7 +654,7 @@ export function aggregateByCondition(data: EnrichedRecord[], limit = 10): BarCha
 }
 
 export function getConditionCounts(data: EnrichedRecord[], limit = 10): BarChartData[] {
-  const flaggedData = data.filter(r => r.dq_status !== 'Clear')
+  const flaggedData = data.filter(r => r.dq_status !== 'Normal')
   return aggregateByCondition(flaggedData, limit)
 }
 
@@ -472,9 +692,9 @@ export function getRopsDistribution(data: EnrichedRecord[]): BarChartData[] {
 // Export to CSV
 export function exportToCSV(data: EnrichedRecord[], filename: string): void {
   const headers = [
-    'Province', 'Region', 'Vendor', 'Node', 'Site Name', 'Cell', 'Metric', 'Condition',
+    'Provincia', 'Región', 'Vendor', 'Nodo', 'Site', 'Celda', 'Métrica', 'Anomalía detectada', 'Condición de calidad',
     'Days Available', 'Days Modified', 'Historical Days Available', 'ROPs Available',
-    'Modulator KPI', 'Modulator Value', 'DQ Status', 'Timestamp'
+    'Modulator KPI', 'Valor modulador', 'Estado DQ', 'Timestamp'
   ]
   
   const rows = data.map(r => [
@@ -485,6 +705,7 @@ export function exportToCSV(data: EnrichedRecord[], filename: string): void {
     r.site_name,
     r.cell,
     r.metric,
+    r.anomaly_detected,
     r.condition,
     r.days_available ?? '',
     r.days_modified,
@@ -528,7 +749,7 @@ export function getTopAffectedNodes(data: EnrichedRecord[], limit = 10): { name:
   for (const record of data) {
     const current = nodeStats.get(record.node_name) || { flagged: 0, total: 0 }
     current.total++
-    if (record.dq_status !== 'Clear') {
+    if (record.dq_status !== 'Normal') {
       current.flagged++
     }
     nodeStats.set(record.node_name, current)
@@ -544,7 +765,7 @@ export function getTopAffectedCells(data: EnrichedRecord[], limit = 10): { name:
   const cellConditions = new Map<string, { conditions: Set<string>; metric: string }>()
   
   for (const record of data) {
-    if (record.dq_status !== 'Clear') {
+    if (record.dq_status !== 'Normal') {
       const current = cellConditions.get(record.cell) || { conditions: new Set(), metric: record.metric }
       record.conditions.forEach(c => current.conditions.add(c))
       cellConditions.set(record.cell, current)

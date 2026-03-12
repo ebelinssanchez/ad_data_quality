@@ -394,14 +394,14 @@ export function ActivityCriteriaPanel() {
 
       <Card className="border-border/70 bg-card/95 shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">Detailed Modulator Table</CardTitle>
+          <CardTitle className="text-base font-medium">Detalle de Activity Criteria</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-xl border">
             <table className="w-full min-w-[1080px] text-sm">
               <thead className="bg-muted/40 text-left">
                 <tr>
-                  {['Province', 'Region', 'Vendor', 'Node', 'Cell', 'Metric', 'Modulator KPI', 'Observed Value', 'Condition'].map((header) => (
+                  {['Celda', 'Métrica', 'Anomalía', 'Modulator KPI', 'Valor', 'Condición'].map((header) => (
                     <th key={header} className="px-4 py-3 font-medium">{header}</th>
                   ))}
                 </tr>
@@ -413,14 +413,11 @@ export function ActivityCriteriaPanel() {
                     className="cursor-pointer border-t hover:bg-muted/30"
                     onClick={() => setSelectedCell(record)}
                   >
-                    <td className="px-4 py-3 text-xs">{record.province}</td>
-                    <td className="px-4 py-3 text-xs">{record.region}</td>
-                    <td className="px-4 py-3 text-xs">{record.supplier}</td>
-                    <td className="px-4 py-3 text-xs">{record.node_name}</td>
                     <td className="px-4 py-3 font-mono text-xs">{record.cell}</td>
                     <td className="px-4 py-3 text-xs">{formatMetricName(record.metric)}</td>
+                    <td className="px-4 py-3 text-xs text-center">{record.anomaly_detected}</td>
                     <td className="px-4 py-3 text-xs">{record.modulator_kpi ?? 'N/A'}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{record.value_modulator_kpi ?? 'N/A'}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{record.value_modulator_kpi ?? 'N/D'}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{record.condition}</td>
                   </tr>
                 ))}

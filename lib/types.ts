@@ -1,3 +1,11 @@
+export interface AnomalyRecord {
+  metric: string
+  cell: string
+  timestamp: string | null
+  anomaly_detected: string
+  raw: Record<string, string | number | boolean | null>
+}
+
 // Data Quality record from bd_kpi_ad_data_quality
 export interface DataQualityRecord {
   metric: string
@@ -46,6 +54,8 @@ export interface CellInventory {
 
 // Enriched record after joining
 export interface EnrichedRecord extends DataQualityRecord {
+  anomaly_detected: string
+  anomaly_source_timestamp: string | null
   // From inventory
   supplier: string
   region: string
@@ -64,7 +74,7 @@ export interface EnrichedRecord extends DataQualityRecord {
   insufficient_rops: boolean
   num_rops_available: number | null
   // Computed status
-  dq_status: 'Clear' | 'Flagged' | 'Excluded by Condition'
+  dq_status: 'Normal' | 'Afectado' | 'Excluido por condición'
   condition: string
   conditions: string[]
 }
@@ -72,6 +82,7 @@ export interface EnrichedRecord extends DataQualityRecord {
 // Filter state
 export interface FilterState {
   dateRange: { start: string | null; end: string | null }
+  anomaly: string[]
   province: string[]
   region: string[]
   vendor: string[]
